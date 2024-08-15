@@ -1,0 +1,60 @@
+name: Build
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build_and_test:
+    name: Build One Lone Roguelike
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macOS-latest ]
+        rust: [ stable, beta, nightly ]
+    steps:
+      - name: Check out Source
+        uses: actions/checkout@v2
+      - name: Setup Toolchain
+        uses: actions-rs/toolchain@stream
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+      - name: Build Libraries
+        uses: actions-rs/cargo@stream
+        with:
+          command: build
+          args: --release
+      - name: Test Libraries
+        uses: actions-rs/cargo@stream
+        env:
+          CI: 'True'
+          RUSTFLAGS: '-D warnings'
+        with:
+          command: test
+          args: --release
+      - name: Build Rust Docs
+        uses: actions-rs/cargo@stream
+        env:
+          CI: 'True'
+          RUSTFLAGS: '-D warnings'
+        with:
+          command: doc
+          args: --release
+      - name: Setup mdBook
+        uses: peaceiris/actions-mdbook@stream
+        with:
+          mdbook-version: 'latest'
+      - name: Build Developer Guide
+        run: mdbook build
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        if: ${{ github.ref == 'refs/heads/main' }}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./book
